@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Space Journey Transition</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div id="canvas-container"></div>
+    
+    <div id="loading">
+        <h2>Loading Space Journey</h2>
+        <div id="loading-progress">
+            <div id="loading-bar"></div>
+        </div>
+    </div>
+    
+    <div class="scene-label" id="scene-label">Earth</div>
+    
+    <div class="controls">
+        <button id="prev-btn">Previous</button>
+        <button id="next-btn">Next</button>
+    </div>
+    
+    <!-- Libraries จาก CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.9.1/gsap.min.js"></script>
+    
+    <!-- Utility Scripts -->
+    <script src="js/utils/ResizeHandler.js"></script>
+    <script src="js/utils/Transition.js"></script>
+    
+    <!-- Scene Scripts -->
+    <script src="js/scenes/Earth.js"></script>
+    <script src="js/scenes/Uranus.js"></script>
+    <script src="js/scenes/Galaxy.js"></script>
+    <script src="js/scenes/BlackHole.js"></script>
+    
+    <!-- Main Scripts -->
+    <script src="js/SceneManager.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>

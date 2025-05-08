@@ -1,0 +1,101 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    overflow: hidden;
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    background-color: #000;
+    font-family: Arial, sans-serif;
+}
+
+#canvas-container {
+    position: fixed;
+    width: 100%;
+    height: 100%;
+}
+
+#loading {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.9);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    z-index: 1000;
+    transition: opacity 1s ease-in-out;
+}
+
+#loading-progress {
+    width: 300px;
+    height: 5px;
+    background-color: #111;
+    margin-top: 20px;
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+#loading-bar {
+    height: 100%;
+    width: 0%;
+    background-color: #0af;
+    transition: width 0.3s ease-out;
+}
+
+.scene-label {
+    position: fixed;
+    left: 50%;
+    bottom: 50px;
+    transform: translateX(-50%);
+    color: white;
+    font-size: 24px;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+    text-shadow: 0 0 10px rgba(0, 0, 0, 0.8);
+    z-index: 100;
+}
+
+.controls {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 20px;
+    z-index: 100;
+}
+
+.controls button {
+    padding: 10px 20px;
+    background-color: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    color: white;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.controls button:hover {
+    background-color: rgba(255, 255, 255, 0.3);
+}
+
+@media screen and (max-width: 768px) {
+    .scene-label {
+        font-size: 18px;
+        bottom: 80px;
+    }
+    
+    .controls button {
+        padding: 8px 15px;
+        font-size: 14px;
+    }
+}
