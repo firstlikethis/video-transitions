@@ -70,13 +70,19 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.9.1/gsap.min.js"></script>
     
-    <!-- Effects Libraries -->
-    <script src="libs/EffectComposer.js"></script>
-    <script src="libs/ShaderPass.js"></script>
-    <script src="libs/RenderPass.js"></script>
-    <script src="libs/UnrealBloomPass.js"></script>
-    <script src="libs/FXAAShader.js"></script>
-    <script src="libs/FilmPass.js"></script>
+    <!-- Three.js core -->
+    <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+
+    <!-- Postprocessing effects from Three.js examples -->
+    <script type="module">
+        import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
+        import { EffectComposer } from 'https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/EffectComposer.js';
+        import { RenderPass } from 'https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/RenderPass.js';
+        import { ShaderPass } from 'https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/ShaderPass.js';
+        import { UnrealBloomPass } from 'https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/UnrealBloomPass.js';
+        import { FilmPass } from 'https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/FilmPass.js';
+        import { FXAAShader } from 'https://unpkg.com/three@0.160.0/examples/jsm/shaders/FXAAShader.js';
+    </script>
     
     <!-- Utils -->
     <script src="js/utils/Constants.js"></script>
