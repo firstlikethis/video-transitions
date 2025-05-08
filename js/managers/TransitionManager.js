@@ -1,83 +1,117 @@
+/**
+ * TransitionManager.js
+ * จัดการการเปลี่ยนฉากระหว่างโลก, ยูเรนัส, กาแล็กซี่, และหลุมดำ
+ * รองรับเอฟเฟกต์ transition ที่แตกต่างกันตามแต่ละฉาก
+ */
 class TransitionManager {
-    constructor() {
+    /**
+     * สร้าง TransitionManager 
+     * @param {SceneManager} sceneManager - ตัวจัดการฉาก
+     * @param {PostProcessingManager} postProcessingManager - ตัวจัดการ post-processing
+     * @param {AudioManager} audioManager - ตัวจัดการเสียง
+     */
+    constructor(sceneManager, postProcessingManager, audioManager) {
+        this.sceneManager = sceneManager;
+        this.postProcessingManager = postProcessingManager;
+        this.audioManager = audioManager;
+        
         // เก็บตัวแปรสำหรับเอฟเฟกต์ transition
         this.transitionOverlays = {};
         this.transitionTimelines = {};
-        this.transitionSounds = {};
+        this.transitionEffects = {};
+        
+        // กำหนดระยะเวลา transition
+        this.transitionDuration = CONSTANTS.TRANSITION_DURATION;
     }
     
-    // การ transition หลักระหว่างฉาก
-    performTransition(fromGroup, toGroup, fromIndex, toIndex, camera, lights, sceneLabel, onCompleteCallback) {
+    /**
+     * เปลี่ยนไปยังฉากที่ต้องการ
+     * @param {number} fromIndex - ดัชนีฉากปัจจุบัน
+     * @param {number} toIndex - ดัชนีฉากที่ต้องการไป
+     */
+    transitionToScene(fromIndex, toIndex) {
+        // ตรวจสอบว่ากำลัง transition อยู่หรือไม่
         if (isTransitioning) return;
         
+        console.log(`Transitioning from scene ${fromIndex} to ${toIndex}`);
         isTransitioning = true;
         
         // ทำให้ทั้งสองฉากมองเห็นได้
-        fromGroup.visible = true;
-        toGroup.visible = true;
+        if (sceneObjects[fromIndex]) {
+            sceneObjects[fromIndex].group.visible = true;
+        }
         
-        // เล่นเสียงการเปลี่ยนฉาก
-        this.playTransitionSound(fromIndex, toIndex);
+        if (sceneObjects[toIndex]) {
+            sceneObjects[toIndex].group.visible = true;
+        } else {
+            console.error(`Scene ${toIndex} does not exist`);
+            isTransitioning = false;
+            return;
+        }
         
         // อัปเดตชื่อฉาก
         const labels = ['Earth', 'Uranus', 'Galaxy', 'Black Hole'];
+        const sceneLabel = document.getElementById('scene-label');
         sceneLabel.textContent = labels[toIndex];
         sceneLabel.style.opacity = '1';
         
-        // สร้างเอฟเฟกต์ transition visual
+        // สร้างเอฟเฟกต์ transition ตามฉากที่กำลังเปลี่ยน
         this.createTransitionVisual(fromIndex, toIndex);
         
-        // กำหนดระยะเวลาและอีซซิ่งสำหรับการเปลี่ยนฉาก
-        const duration = 4; // วินาที
-        const ease = "power3.inOut";
+        // เล่นเสียงการเปลี่ยนฉาก
+        if (this.audioManager && this.audioManager.enabled) {
+            this.audioManager.playTransitionSound(fromIndex, toIndex);
+        }
         
-        // คำนวณเส้นทางกล้องตามฉาก
-        const cameraPath = this.calculateCameraPath(fromIndex, toIndex, duration);
-        
-        // แอนิเมชันออบเจ็กต์ฉาก
+        // แอนิเมชันวัตถุในฉาก
         if (toIndex > fromIndex) {
-            // เคลื่อนที่ไปข้างหน้า
-            this.animateForwardTransition(fromGroup, toGroup, duration, ease);
+            // กำลังเคลื่อนที่ไปข้างหน้า
+            this.animateForwardTransition(sceneObjects[fromIndex].group, sceneObjects[toIndex].group);
         } else {
-            // เคลื่อนที่ย้อนกลับ
-            this.animateBackwardTransition(fromGroup, toGroup, duration, ease);
+            // กำลังเคลื่อนที่ย้อนกลับ
+            this.animateBackwardTransition(sceneObjects[fromIndex].group, sceneObjects[toIndex].group);
+        }
+        
+        // เปลี่ยนเอฟเฟกต์ post-processing
+        if (this.postProcessingManager) {
+            this.postProcessingManager.setSceneEffects(toIndex, this.transitionDuration);
+            this.postProcessingManager.addTransitionEffect(fromIndex, toIndex, this.transitionDuration);
         }
         
         // แอนิเมชันกล้อง
-        this.animateCamera(camera, cameraPath);
+        this.animateCamera(fromIndex, toIndex);
         
         // แอนิเมชันแสง
-        this.animateLights(lights, toIndex, duration);
+        this.animateLights(toIndex);
         
-        // เมื่อ transition เสร็จสิ้น
+        // เปลี่ยนเสียงพื้นหลัง
+        if (this.audioManager && this.audioManager.enabled) {
+            this.audioManager.changeSceneAudio(toIndex);
+        }
+        
+        // กำหนดเวลาสิ้นสุดการ transition
         setTimeout(() => {
-            onCompleteCallback();
-            isTransitioning = false;
-            this.cleanupTransition(fromIndex, toIndex);
-            
-            // อัปเดตฉากปัจจุบัน
-            currentScene = toIndex;
-            
-            // เริ่มการเปลี่ยนฉากอัตโนมัติใหม่หากเปิดใช้งาน
-            if (autoTransitionEnabled) {
-                startAutomaticTransition();
-            }
-        }, duration * 1000);
+            this.completeTransition(fromIndex, toIndex);
+        }, this.transitionDuration * 1000);
     }
     
-    // สร้างเอฟเฟกต์ transition visual
+    /**
+     * สร้างเอฟเฟกต์ transition visual
+     * @param {number} fromIndex - ดัชนีฉากปัจจุบัน
+     * @param {number} toIndex - ดัชนีฉากที่ต้องการไป
+     */
     createTransitionVisual(fromIndex, toIndex) {
         // สร้างเอฟเฟกต์แตกต่างกันตามฉาก
         const overlay = document.createElement('div');
         overlay.className = 'transition-overlay';
         
-        if (toIndex === SCENES.BLACK_HOLE) {
+        if (toIndex === CONSTANTS.SCENES.BLACK_HOLE) {
             // เอฟเฟกต์พิเศษเมื่อเข้าสู่หลุมดำ
             overlay.classList.add('blackhole-transition');
-        } else if (fromIndex === SCENES.BLACK_HOLE) {
+        } else if (fromIndex === CONSTANTS.SCENES.BLACK_HOLE) {
             // เอฟเฟกต์เมื่อออกจากหลุมดำ
             overlay.classList.add('exit-blackhole');
-        } else if (toIndex === SCENES.GALAXY) {
+        } else if (toIndex === CONSTANTS.SCENES.GALAXY) {
             // เอฟเฟกต์เมื่อเข้าสู่กาแล็กซี่
             overlay.classList.add('galaxy-transition');
         } else {
@@ -91,24 +125,28 @@ class TransitionManager {
         // แอนิเมชันเอฟเฟกต์
         const timeline = gsap.timeline();
         
-        if (toIndex === SCENES.BLACK_HOLE) {
+        if (toIndex === CONSTANTS.SCENES.BLACK_HOLE) {
+            // เอฟเฟกต์หลุมดำแบบพิเศษ
             timeline.to(overlay, {
                 opacity: 0.7,
-                duration: 1.5,
+                duration: this.transitionDuration * 0.4,
                 ease: "power2.in"
             }).to(overlay, {
                 opacity: 0,
-                duration: 2.5,
+                duration: this.transitionDuration * 0.6,
                 ease: "power3.out"
             });
+            
+            // เพิ่มเอฟเฟกต์ time dilation
+            this.addTimeDilationEffect(this.transitionDuration * 0.4);
         } else {
             timeline.to(overlay, {
                 opacity: 0.5,
-                duration: 1,
+                duration: this.transitionDuration * 0.3,
                 ease: "power1.in"
             }).to(overlay, {
                 opacity: 0,
-                duration: 3,
+                duration: this.transitionDuration * 0.7,
                 ease: "power2.out"
             });
         }
@@ -116,82 +154,21 @@ class TransitionManager {
         this.transitionTimelines[`${fromIndex}-${toIndex}`] = timeline;
     }
     
-    // คำนวณเส้นทางกล้องตามฉาก
-    calculateCameraPath(fromIndex, toIndex, duration) {
-        const cameraPath = [];
-        
-        switch(toIndex) {
-            case SCENES.EARTH:
-                // เส้นทางกล้องสำหรับโลก - วงโคจรรอบโลก
-                cameraPath.push(
-                    { x: 5, y: 3, z: 20, duration: duration * 0.3 },
-                    { x: 2, y: 1, z: 17, duration: duration * 0.3 },
-                    { x: 0, y: 0, z: 15, duration: duration * 0.4 }
-                );
-                break;
-                
-            case SCENES.URANUS:
-                // เส้นทางกล้องสำหรับยูเรนัส - โค้งรอบดาว
-                cameraPath.push(
-                    { x: -5, y: 8, z: 25, duration: duration * 0.3 },
-                    { x: -2, y: 5, z: 22, duration: duration * 0.3 },
-                    { x: 0, y: 3, z: 20, duration: duration * 0.4 }
-                );
-                break;
-                
-            case SCENES.GALAXY:
-                // เส้นทางกล้องสำหรับกาแล็กซี่ - มุมมองจากด้านบน
-                cameraPath.push(
-                    { x: 5, y: 12, z: 20, duration: duration * 0.3 },
-                    { x: 3, y: 10, z: 17, duration: duration * 0.3 },
-                    { x: 2, y: 8, z: 15, duration: duration * 0.4 }
-                );
-                break;
-                
-            case SCENES.BLACK_HOLE:
-                // เส้นทางกล้องสำหรับหลุมดำ - ค่อยๆ ดึงดูดเข้าไป
-                cameraPath.push(
-                    { x: 2, y: 8, z: 25, duration: duration * 0.2 },
-                    { x: 1, y: 7, z: 22, duration: duration * 0.3 },
-                    { x: 0, y: 5, z: 20, duration: duration * 0.5 }
-                );
-                break;
-        }
-        
-        return cameraPath;
-    }
-    
-    // แอนิเมชันกล้อง
-    animateCamera(camera, cameraPath) {
-        let timeline = gsap.timeline();
-        
-        cameraPath.forEach(point => {
-            timeline.to(camera.position, {
-                x: point.x,
-                y: point.y,
-                z: point.z,
-                duration: point.duration,
-                ease: "power2.inOut"
-            });
-        });
-        
-        // เพิ่มการเขย่ากล้องเล็กน้อยสำหรับหลุมดำ
-        if (cameraPath.length > 0 && cameraPath[cameraPath.length - 1].z === 20) {
-            setTimeout(() => {
-                this.addCameraShake(camera, 0.8);
-            }, cameraPath[0].duration * 1000);
-        }
-    }
-    
-    // แอนิเมชัน objects สำหรับ transition ไปข้างหน้า
-    animateForwardTransition(fromGroup, toGroup, duration, ease) {
-        // จากฉากปัจจุบันไปฉากถัดไป
+    /**
+     * แอนิเมชัน objects สำหรับ transition ไปข้างหน้า
+     * @param {THREE.Group} fromGroup - กลุ่มวัตถุฉากปัจจุบัน
+     * @param {THREE.Group} toGroup - กลุ่มวัตถุฉากที่ต้องการไป
+     */
+    animateForwardTransition(fromGroup, toGroup) {
+        // บันทึกตำแหน่งเริ่มต้นของกลุ่มวัตถุ
+        const fromPosition = fromGroup.position.clone();
+        const toPosition = toGroup.position.clone();
         
         // แอนิเมชันฉากปัจจุบัน - เคลื่อนที่ออกไป
         gsap.to(fromGroup.position, {
             z: -100,
-            duration: duration,
-            ease: ease
+            duration: this.transitionDuration,
+            ease: "power3.inOut"
         });
         
         // เพิ่มการหมุนระหว่าง transition
@@ -199,7 +176,7 @@ class TransitionManager {
             x: -0.2,
             y: 0.5,
             z: 0.1,
-            duration: duration * 0.7,
+            duration: this.transitionDuration * 0.7,
             ease: "power2.inOut"
         });
         
@@ -211,28 +188,30 @@ class TransitionManager {
             x: 0,
             y: 0,
             z: 0,
-            duration: duration,
-            ease: ease
+            duration: this.transitionDuration,
+            ease: "power3.inOut"
         });
         
         gsap.to(toGroup.rotation, {
             x: 0,
             y: 0,
             z: 0,
-            duration: duration,
+            duration: this.transitionDuration,
             ease: "power2.inOut"
         });
     }
     
-    // แอนิเมชัน objects สำหรับ transition ย้อนกลับ
-    animateBackwardTransition(fromGroup, toGroup, duration, ease) {
-        // จากฉากปัจจุบันไปฉากก่อนหน้า
-        
+    /**
+     * แอนิเมชัน objects สำหรับ transition ย้อนกลับ
+     * @param {THREE.Group} fromGroup - กลุ่มวัตถุฉากปัจจุบัน
+     * @param {THREE.Group} toGroup - กลุ่มวัตถุฉากที่ต้องการไป
+     */
+    animateBackwardTransition(fromGroup, toGroup) {
         // แอนิเมชันฉากปัจจุบัน - เคลื่อนที่ออกไป
         gsap.to(fromGroup.position, {
             z: 100,
-            duration: duration,
-            ease: ease
+            duration: this.transitionDuration,
+            ease: "power3.inOut"
         });
         
         // เพิ่มการหมุนระหว่าง transition
@@ -240,7 +219,7 @@ class TransitionManager {
             x: 0.3,
             y: -0.2,
             z: 0.1,
-            duration: duration * 0.7,
+            duration: this.transitionDuration * 0.7,
             ease: "power2.inOut"
         });
         
@@ -252,20 +231,136 @@ class TransitionManager {
             x: 0,
             y: 0,
             z: 0,
-            duration: duration,
-            ease: ease
+            duration: this.transitionDuration,
+            ease: "power3.inOut"
         });
         
         gsap.to(toGroup.rotation, {
             x: 0,
             y: 0,
             z: 0,
-            duration: duration,
+            duration: this.transitionDuration,
             ease: "power2.inOut"
         });
     }
     
-    // เพิ่มการเขย่ากล้อง (เฉพาะฉากหลุมดำ)
+    /**
+     * แอนิเมชันกล้อง
+     * @param {number} fromIndex - ดัชนีฉากปัจจุบัน
+     * @param {number} toIndex - ดัชนีฉากที่ต้องการไป
+     */
+    animateCamera(fromIndex, toIndex) {
+        const camera = this.sceneManager.camera;
+        const cameraPath = this.getCameraPath(fromIndex, toIndex);
+        
+        let timeline = gsap.timeline();
+        
+        // แอนิเมชันตามเส้นทางกล้อง
+        cameraPath.forEach(point => {
+            timeline.to(camera.position, {
+                x: point.x,
+                y: point.y,
+                z: point.z,
+                duration: point.duration,
+                ease: "power2.inOut"
+            });
+        });
+        
+        // เพิ่มการเขย่ากล้องเล็กน้อยสำหรับหลุมดำ
+        if (toIndex === CONSTANTS.SCENES.BLACK_HOLE) {
+            setTimeout(() => {
+                this.addCameraShake(camera, 0.8);
+            }, cameraPath[0].duration * 1000);
+        }
+    }
+    
+    /**
+     * คำนวณเส้นทางกล้องตามฉาก
+     * @param {number} fromIndex - ดัชนีฉากปัจจุบัน
+     * @param {number} toIndex - ดัชนีฉากที่ต้องการไป
+     * @returns {Array} เส้นทางกล้อง
+     */
+    getCameraPath(fromIndex, toIndex) {
+        const cameraPath = [];
+        
+        // กำหนดเส้นทางและความเร็วตามฉาก
+        switch(toIndex) {
+            case CONSTANTS.SCENES.EARTH:
+                // เส้นทางกล้องสำหรับโลก - วงโคจรรอบโลก
+                cameraPath.push(
+                    { x: 5, y: 3, z: 20, duration: this.transitionDuration * 0.3 },
+                    { x: 2, y: 1, z: 17, duration: this.transitionDuration * 0.3 },
+                    { x: 0, y: 0, z: 15, duration: this.transitionDuration * 0.4 }
+                );
+                break;
+                
+            case CONSTANTS.SCENES.URANUS:
+                // เส้นทางกล้องสำหรับยูเรนัส - โค้งรอบดาว
+                cameraPath.push(
+                    { x: -5, y: 8, z: 25, duration: this.transitionDuration * 0.3 },
+                    { x: -2, y: 5, z: 22, duration: this.transitionDuration * 0.3 },
+                    { x: 0, y: 3, z: 20, duration: this.transitionDuration * 0.4 }
+                );
+                break;
+                
+            case CONSTANTS.SCENES.GALAXY:
+                // เส้นทางกล้องสำหรับกาแล็กซี่ - มุมมองจากด้านบน
+                cameraPath.push(
+                    { x: 5, y: 12, z: 20, duration: this.transitionDuration * 0.3 },
+                    { x: 3, y: 10, z: 17, duration: this.transitionDuration * 0.3 },
+                    { x: 2, y: 8, z: 15, duration: this.transitionDuration * 0.4 }
+                );
+                break;
+                
+            case CONSTANTS.SCENES.BLACK_HOLE:
+                // เส้นทางกล้องสำหรับหลุมดำ - ค่อยๆ ดึงดูดเข้าไป
+                cameraPath.push(
+                    { x: 2, y: 8, z: 25, duration: this.transitionDuration * 0.2 },
+                    { x: 1, y: 7, z: 22, duration: this.transitionDuration * 0.3 },
+                    { x: 0, y: 5, z: 20, duration: this.transitionDuration * 0.5 }
+                );
+                break;
+        }
+        
+        return cameraPath;
+    }
+    
+    /**
+     * แอนิเมชันแสง
+     * @param {number} toIndex - ดัชนีฉากที่ต้องการไป
+     */
+    animateLights(toIndex) {
+        // ดึงแสงจาก SceneManager
+        const lights = {
+            ambient: this.sceneManager.ambientLight,
+            directional: this.sceneManager.directionalLight,
+            blue: this.sceneManager.blueLight,
+            purple: this.sceneManager.purpleLight
+        };
+        
+        // ไม่มีแสงให้ปรับแต่ง
+        if (!lights.ambient || !lights.directional) return;
+        
+        // ปรับแสงตามฉาก
+        const settings = CONSTANTS.SCENE_SETTINGS[toIndex].lights;
+        
+        gsap.to(lights.ambient, { intensity: settings.ambient, duration: this.transitionDuration * 0.7 });
+        gsap.to(lights.directional, { intensity: settings.directional, duration: this.transitionDuration * 0.7 });
+        
+        if (lights.blue) {
+            gsap.to(lights.blue, { intensity: settings.blue, duration: this.transitionDuration * 0.7 });
+        }
+        
+        if (lights.purple) {
+            gsap.to(lights.purple, { intensity: settings.purple, duration: this.transitionDuration * 0.7 });
+        }
+    }
+    
+    /**
+     * เพิ่มการเขย่ากล้อง
+     * @param {THREE.Camera} camera - กล้อง
+     * @param {number} duration - ระยะเวลาการเขย่า (วินาที)
+     */
     addCameraShake(camera, duration) {
         const originalPosition = camera.position.clone();
         const shakeIntensity = 0.08;
@@ -298,92 +393,71 @@ class TransitionManager {
         }, 16);
     }
     
-    // แอนิเมชันแสง
-    animateLights(lights, toIndex, duration) {
-        // ปรับแสงตามฉาก
-        switch(toIndex) {
-            case SCENES.EARTH:
-                // แสงสำหรับโลก
-                gsap.to(lights.ambient, { intensity: 0.5, duration: duration * 0.7 });
-                gsap.to(lights.directional, { intensity: 1.0, duration: duration * 0.7 });
-                gsap.to(lights.blue, { intensity: 0, duration: duration * 0.7 });
-                gsap.to(lights.purple, { intensity: 0, duration: duration * 0.7 });
-                break;
-                
-            case SCENES.URANUS:
-                // แสงสำหรับยูเรนัส
-                gsap.to(lights.ambient, { intensity: 0.3, duration: duration * 0.7 });
-                gsap.to(lights.directional, { intensity: 0.8, duration: duration * 0.7 });
-                gsap.to(lights.blue, { intensity: 2, duration: duration * 0.7 });
-                gsap.to(lights.purple, { intensity: 0.5, duration: duration * 0.7 });
-                break;
-                
-            case SCENES.GALAXY:
-                // แสงสำหรับกาแล็กซี่
-                gsap.to(lights.ambient, { intensity: 0.2, duration: duration * 0.7 });
-                gsap.to(lights.directional, { intensity: 0.5, duration: duration * 0.7 });
-                gsap.to(lights.blue, { intensity: 5, duration: duration * 0.7 });
-                gsap.to(lights.purple, { intensity: 3, duration: duration * 0.7 });
-                break;
-                
-            case SCENES.BLACK_HOLE:
-                // แสงสำหรับหลุมดำ
-                gsap.to(lights.ambient, { intensity: 0.1, duration: duration * 0.7 });
-                gsap.to(lights.directional, { intensity: 0.3, duration: duration * 0.7 });
-                gsap.to(lights.blue, { intensity: 3, duration: duration * 0.7 });
-                gsap.to(lights.purple, { intensity: 7, duration: duration * 0.7 });
-                break;
+    /**
+     * เพิ่มเอฟเฟกต์ time dilation แบบ Interstellar
+     * @param {number} delay - ระยะเวลารอก่อนเริ่มเอฟเฟกต์ (วินาที)
+     */
+    addTimeDilationEffect(delay) {
+        // สร้างเอฟเฟกต์ DOM overlay
+        const dilationOverlay = document.createElement('div');
+        dilationOverlay.className = 'time-dilation-overlay';
+        document.body.appendChild(dilationOverlay);
+        
+        // บันทึกไว้เพื่อลบภายหลัง
+        this.transitionEffects.timeDilation = dilationOverlay;
+        
+        // กำหนดเวลาเริ่มเอฟเฟกต์
+        setTimeout(() => {
+            // แอนิเมชัน DOM overlay
+            gsap.to(dilationOverlay, {
+                opacity: 0.7,
+                duration: 0.5,
+                ease: "power1.in",
+                onComplete: () => {
+                    // อนิเมชันจางหาย
+                    gsap.to(dilationOverlay, {
+                        opacity: 0,
+                        duration: 2,
+                        ease: "power3.out",
+                        onComplete: () => {
+                            dilationOverlay.remove();
+                            delete this.transitionEffects.timeDilation;
+                        }
+                    });
+                }
+            });
+        }, delay * 1000);
+    }
+    
+    /**
+     * ดำเนินการเมื่อการ transition เสร็จสิ้น
+     * @param {number} fromIndex - ดัชนีฉากปัจจุบัน
+     * @param {number} toIndex - ดัชนีฉากที่ต้องการไป
+     */
+    completeTransition(fromIndex, toIndex) {
+        // ซ่อนฉากเดิม
+        if (sceneObjects[fromIndex]) {
+            sceneObjects[fromIndex].group.visible = false;
+        }
+        
+        // ทำความสะอาดทรัพยากร transition
+        this.cleanupTransition(fromIndex, toIndex);
+        
+        // อัปเดตฉากปัจจุบัน
+        currentScene = toIndex;
+        isTransitioning = false;
+        
+        // เริ่มการเปลี่ยนฉากอัตโนมัติสำหรับฉากถัดไป
+        if (autoTransitionEnabled) {
+            startAutomaticTransition();
         }
     }
     
-    // เล่นเสียงการเปลี่ยนฉาก
-    playTransitionSound(fromIndex, toIndex) {
-        if (!audioEnabled || !audioContext) return;
-        
-        // ตั้งค่าโทนเสียงตามฉาก
-        let frequency = 300;
-        let type = 'sine';
-        
-        if (toIndex === SCENES.BLACK_HOLE) {
-            frequency = 80;
-            type = 'sawtooth';
-        } else if (toIndex === SCENES.GALAXY) {
-            frequency = 200;
-            type = 'triangle';
-        } else if (toIndex === SCENES.URANUS) {
-            frequency = 150;
-            type = 'sine';
-        }
-        
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
-        const filter = audioContext.createBiquadFilter();
-        
-        oscillator.type = type;
-        oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
-        
-        filter.type = 'lowpass';
-        filter.frequency.setValueAtTime(1000, audioContext.currentTime);
-        
-        gainNode.gain.setValueAtTime(0, audioContext.currentTime);
-        gainNode.gain.linearRampToValueAtTime(0.2, audioContext.currentTime + 0.1);
-        gainNode.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 2);
-        
-        oscillator.connect(filter);
-        filter.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-        
-        oscillator.start();
-        oscillator.stop(audioContext.currentTime + 2);
-        
-        this.transitionSounds[`${fromIndex}-${toIndex}`] = {
-            oscillator,
-            gainNode,
-            filter
-        };
-    }
-    
-    // ทำความสะอาดหลัง transition
+    /**
+     * ทำความสะอาดทรัพยากร transition
+     * @param {number} fromIndex - ดัชนีฉากปัจจุบัน
+     * @param {number} toIndex - ดัชนีฉากที่ต้องการไป
+     */
     cleanupTransition(fromIndex, toIndex) {
         // ลบ overlay
         const overlayKey = `${fromIndex}-${toIndex}`;
@@ -398,9 +472,12 @@ class TransitionManager {
             delete this.transitionTimelines[overlayKey];
         }
         
-        // ล้างเสียง
-        if (this.transitionSounds[overlayKey]) {
-            delete this.transitionSounds[overlayKey];
+        // ล้างเอฟเฟกต์อื่นๆ
+        for (const key in this.transitionEffects) {
+            if (this.transitionEffects[key].parentNode) {
+                this.transitionEffects[key].remove();
+            }
+            delete this.transitionEffects[key];
         }
     }
 }

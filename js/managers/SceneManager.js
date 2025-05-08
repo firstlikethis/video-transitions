@@ -1,587 +1,437 @@
+/**
+ * SceneManager.js
+ * จัดการการสร้างและควบคุมฉากทั้งหมดในแอพพลิเคชัน
+ * รองรับการเปลี่ยนฉาก การปรับขนาดหน้าจอ และการจัดการทรัพยากร
+ */
 class SceneManager {
-    constructor(loadingManager) {
-        this.loadingManager = loadingManager;
+    /**
+     * สร้าง SceneManager
+     * @param {Object} textures - เก็บเท็กซ์เจอร์ทั้งหมด
+     * @param {Object} materials - เก็บวัสดุที่สร้างจากเท็กซ์เจอร์
+     */
+    constructor(textures, materials) {
+        this.textures = textures;
+        this.materials = materials;
+        
+        // ค้นหา container สำหรับ canvas
         this.container = document.getElementById('canvas-container');
-        this.sceneLabel = document.getElementById('scene-label');
+        if (!this.container) {
+            console.error('Canvas container not found');
+            this.container = document.body;
+        }
         
+        // สร้าง renderer
         this.setupRenderer();
-        this.setupScene();
-        this.setupCamera();
-        this.setupLights();
         
-        // Setup resize handler
-        this.resizeHandler = new ResizeHandler(this.camera, this.renderer);
-        
-        // Create texture loader
-        this.textureLoader = new THREE.TextureLoader(this.loadingManager);
-        this.textures = {};
-        
-        // Flag to track if we've successfully loaded assets
-        this.assetsLoaded = false;
-        
-        // Load assets and initialize
-        this.loadAssets().then(() => {
-            this.assetsLoaded = true;
-            this.createScenes();
-            this.animate();
-            this.showScene(SCENES.EARTH);
-        }).catch(error => {
-            console.error("Failed to load assets:", error);
-            // Show error message to user
-            alert("Failed to load textures. Loading backup simple version.");
-            // Create scenes with default textures as fallback
-            this.createSimpleScenes();
-            this.animate();
-            this.showScene(SCENES.EARTH);
-        });
-    }
-    
-    setupRenderer() {
-        this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        this.renderer.setSize(window.innerWidth, window.innerHeight);
-        this.renderer.shadowMap.enabled = true;
-        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-        this.renderer.outputEncoding = THREE.sRGBEncoding;
-        this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        this.renderer.toneMappingExposure = 1.1;
-        this.container.appendChild(this.renderer.domElement);
-    }
-    
-    setupScene() {
+        // สร้าง scene หลัก
         this.scene = new THREE.Scene();
         this.scene.background = new THREE.Color(0x000000);
         this.scene.fog = new THREE.FogExp2(0x000000, 0.0007);
+        
+        // สร้างกล้อง
+        this.setupCamera();
+        
+        // สร้างแสง
+        this.setupLights();
+        
+        // สร้าง ResizeHandler
+        this.resizeHandler = new ResizeHandler(this.camera, this.renderer);
+        
+        // เริ่มต้นตั้งค่า particle multiplier
+        this.particleMultiplier = 1.0;
+        
+        // สร้างฉากทั้งหมด
+        this.createScenes();
+        
+        // สร้างพื้นหลังดาว
+        this.createStarBackground();
     }
     
+    /**
+     * สร้างและตั้งค่า renderer
+     */
+    setupRenderer() {
+        // ตรวจสอบการรองรับ WebGL
+        if (!this.checkWebGLSupport()) {
+            this.showWebGLError();
+            return;
+        }
+        
+        // ตั้งค่า renderer
+        this.renderer = new THREE.WebGLRenderer({ 
+            antialias: true, 
+            alpha: true,
+            powerPreference: 'high-performance'
+        });
+        
+        // ตั้งขนาดเริ่มต้น
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        
+        // เปิดใช้งานเงา
+        this.renderer.shadowMap.enabled = true;
+        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        
+        // ตั้งค่าการเข้ารหัสสี
+        this.renderer.outputEncoding = THREE.sRGBEncoding;
+        this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        this.renderer.toneMappingExposure = 1.1;
+        
+        // เพิ่ม canvas เข้าไปใน container
+        this.container.appendChild(this.renderer.domElement);
+    }
+    
+    /**
+     * ตรวจสอบการรองรับ WebGL
+     * @returns {boolean} รองรับหรือไม่
+     */
+    checkWebGLSupport() {
+        try {
+            const canvas = document.createElement('canvas');
+            return !!(window.WebGLRenderingContext && 
+                (canvas.getContext('webgl') || canvas.getContext('experimental-webgl')));
+        } catch (e) {
+            return false;
+        }
+    }
+    
+    /**
+     * แสดงข้อความเมื่อไม่รองรับ WebGL
+     */
+    showWebGLError() {
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'webgl-error';
+        errorDiv.innerHTML = `
+            <div class="error-content">
+                <h2>WebGL Not Supported</h2>
+                <p>Your browser or device does not support WebGL, which is required for this experience.</p>
+                <p>Please try a different browser or device.</p>
+            </div>
+        `;
+        
+        // เพิ่มสไตล์
+        const style = document.createElement('style');
+        style.textContent = `
+            .webgl-error {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.9);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 9999;
+                color: white;
+                text-align: center;
+            }
+            .error-content {
+                max-width: 500px;
+                padding: 30px;
+                background: rgba(30, 30, 50, 0.7);
+                border-radius: 10px;
+                border: 1px solid rgba(74, 158, 255, 0.3);
+            }
+            .error-content h2 {
+                color: #ff6348;
+                margin-bottom: 20px;
+            }
+        `;
+        
+        document.head.appendChild(style);
+        document.body.appendChild(errorDiv);
+    }
+    
+    /**
+     * สร้างและตั้งค่ากล้อง
+     */
     setupCamera() {
-        this.camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 10000);
+        const fov = 60;
+        const aspect = window.innerWidth / window.innerHeight;
+        const near = 0.1;
+        const far = 10000;
+        
+        this.camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
         this.camera.position.set(0, 0, 20);
         this.camera.lookAt(0, 0, 0);
     }
     
+    /**
+     * สร้างและตั้งค่าแสง
+     */
     setupLights() {
-        // Ambient light
-        const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
-        this.scene.add(ambientLight);
+        // Ambient light - แสงโดยรอบ
+        this.ambientLight = new THREE.AmbientLight(0x404040, 0.5);
+        this.scene.add(this.ambientLight);
         
-        // Directional light (sun-like)
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-        directionalLight.position.set(50, 30, 50);
-        directionalLight.castShadow = true;
-        directionalLight.shadow.mapSize.width = 2048;
-        directionalLight.shadow.mapSize.height = 2048;
-        directionalLight.shadow.camera.near = 0.5;
-        directionalLight.shadow.camera.far = 500;
-        directionalLight.shadow.camera.left = -100;
-        directionalLight.shadow.camera.right = 100;
-        directionalLight.shadow.camera.top = 100;
-        directionalLight.shadow.camera.bottom = -100;
-        this.scene.add(directionalLight);
+        // Directional light - แสงทิศทาง (เหมือนดวงอาทิตย์)
+        this.directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+        this.directionalLight.position.set(50, 30, 50);
+        this.directionalLight.castShadow = true;
         
-        // Add some point lights for galaxy and black hole scenes
-        const blueLight = new THREE.PointLight(0x3498db, 0, 50);
-        blueLight.position.set(-10, 5, 10);
-        this.scene.add(blueLight);
-        this.blueLight = blueLight;
+        // ปรับแต่งคุณภาพเงา
+        this.directionalLight.shadow.mapSize.width = 2048;
+        this.directionalLight.shadow.mapSize.height = 2048;
+        this.directionalLight.shadow.camera.near = 0.5;
+        this.directionalLight.shadow.camera.far = 500;
+        this.directionalLight.shadow.camera.left = -100;
+        this.directionalLight.shadow.camera.right = 100;
+        this.directionalLight.shadow.camera.top = 100;
+        this.directionalLight.shadow.camera.bottom = -100;
         
-        const purpleLight = new THREE.PointLight(0x9b59b6, 0, 50);
-        purpleLight.position.set(10, -5, 10);
-        this.scene.add(purpleLight);
-        this.purpleLight = purpleLight;
+        this.scene.add(this.directionalLight);
+        
+        // เพิ่มแสงสีสำหรับฉากอวกาศ
+        this.blueLight = new THREE.PointLight(0x3498db, 0, 50);
+        this.blueLight.position.set(-10, 5, 10);
+        this.scene.add(this.blueLight);
+        
+        this.purpleLight = new THREE.PointLight(0x9b59b6, 0, 50);
+        this.purpleLight.position.set(10, -5, 10);
+        this.scene.add(this.purpleLight);
     }
     
-    async loadAssets() {
-        return new Promise(async (resolve, reject) => {
-            try {
-                // ใช้ URL ที่ทำงานได้จริงจากบริการที่เชื่อถือได้ (Imgur)
-                const texturePromises = [
-                    // Earth textures
-                    this.loadTextureWithFallback('earth', 
-                        'https://i.imgur.com/6iIJr5N.jpg', // Earth texture
-                        this.createDefaultTexture(0x2233ff) // Blue fallback
-                    ),
-                    
-                    this.loadTextureWithFallback('earthBump', 
-                        'https://i.imgur.com/cJkPcGj.jpg', // Earth bump map
-                        this.createDefaultTexture(0x777777) // Grey fallback
-                    ),
-                    
-                    this.loadTextureWithFallback('earthClouds', 
-                        'https://i.imgur.com/O2vVPfl.png', // Earth clouds
-                        this.createDefaultTexture(0xffffff, 0.5) // White transparent fallback
-                    ),
-                    
-                    // Uranus texture
-                    this.loadTextureWithFallback('uranusMap', 
-                        'https://i.imgur.com/UKICErk.jpg', // Uranus texture
-                        this.createDefaultTexture(0x45a6ed) // Light blue fallback
-                    ),
-                    
-                    // Star field texture
-                    this.loadTextureWithFallback('starField', 
-                        'https://i.imgur.com/FS3BBHu.jpg', // Star field
-                        this.createDefaultTexture(0x000000) // Black fallback with white dots
-                    ),
-                    
-                    // Galaxy particle texture
-                    this.loadTextureWithFallback('galaxy', 
-                        'https://i.imgur.com/xXs1KUw.png', // Particle texture
-                        this.createDefaultParticleTexture() // White circle fallback
-                    )
-                ];
-                
-                // Wait for all textures to load
-                await Promise.all(texturePromises);
-                resolve();
-            } catch (error) {
-                console.error("Error loading textures:", error);
-                reject(error);
-            }
-        });
-    }
-    
-    // Create a default texture with a solid color (for fallback)
-    createDefaultTexture(color, opacity = 1.0) {
-        const canvas = document.createElement('canvas');
-        canvas.width = 128;
-        canvas.height = 128;
-        const context = canvas.getContext('2d');
-        context.fillStyle = `#${color.toString(16).padStart(6, '0')}`;
-        context.fillRect(0, 0, 128, 128);
-        
-        // Add some random dots for star field if it's black
-        if (color === 0x000000) {
-            context.fillStyle = '#FFFFFF';
-            for (let i = 0; i < 100; i++) {
-                const x = Math.random() * 128;
-                const y = Math.random() * 128;
-                const size = Math.random() * 2;
-                context.beginPath();
-                context.arc(x, y, size, 0, Math.PI * 2);
-                context.fill();
-            }
-        }
-        
-        const texture = new THREE.CanvasTexture(canvas);
-        if (opacity < 1.0) {
-            texture.transparent = true;
-        }
-        return texture;
-    }
-    
-    // Create a default particle texture (white dot with soft edges)
-    createDefaultParticleTexture() {
-        const canvas = document.createElement('canvas');
-        canvas.width = 32;
-        canvas.height = 32;
-        const context = canvas.getContext('2d');
-        
-        // Create circular gradient
-        const gradient = context.createRadialGradient(16, 16, 0, 16, 16, 16);
-        gradient.addColorStop(0, 'rgba(255, 255, 255, 1.0)');
-        gradient.addColorStop(1, 'rgba(255, 255, 255, 0.0)');
-        
-        context.fillStyle = gradient;
-        context.fillRect(0, 0, 32, 32);
-        
-        const texture = new THREE.CanvasTexture(canvas);
-        return texture;
-    }
-    
-    // Load texture with fallback to handle failures
-    loadTextureWithFallback(name, url, fallbackTexture) {
-        return new Promise((resolve) => {
-            this.textureLoader.load(
-                url,
-                (texture) => {
-                    this.textures[name] = texture;
-                    resolve(texture);
-                },
-                undefined,
-                (error) => {
-                    console.warn(`Failed to load texture ${url}, using fallback`, error);
-                    this.textures[name] = fallbackTexture;
-                    resolve(fallbackTexture);
-                }
-            );
-        });
-    }
-    
+    /**
+     * สร้างฉากทั้งหมด
+     */
     createScenes() {
-        // Create star background
-        this.createStarBackground();
+        // สร้างฉากโดยใช้คลาสที่เตรียมไว้
+        sceneObjects[CONSTANTS.SCENES.EARTH] = new EarthScene(this.scene, this.textures, this.materials);
+        sceneObjects[CONSTANTS.SCENES.URANUS] = new UranusScene(this.scene, this.textures, this.materials);
+        sceneObjects[CONSTANTS.SCENES.GALAXY] = new GalaxyScene(this.scene, this.textures, this.materials);
+        sceneObjects[CONSTANTS.SCENES.BLACK_HOLE] = new BlackHoleScene(this.scene, this.textures, this.materials);
         
-        // Create scene objects using the imported classes
-        sceneObjects[SCENES.EARTH] = new EarthScene(this.scene, this.textures);
-        sceneObjects[SCENES.URANUS] = new UranusScene(this.scene, this.textures);
-        sceneObjects[SCENES.GALAXY] = new GalaxyScene(this.scene, this.textures);
-        sceneObjects[SCENES.BLACK_HOLE] = new BlackHoleScene(this.scene, this.textures);
-        
-        // Initially hide all scenes except Earth
-        for (const sceneIdx in sceneObjects) {
-            sceneObjects[sceneIdx].group.visible = false;
-        }
-    }
-    
-    // Fallback to create very simple scenes if textures fail to load
-    createSimpleScenes() {
-        // Create a simple starry background
-        this.createSimpleStarBackground();
-        
-        // Create simple scene objects without textures
-        sceneObjects[SCENES.EARTH] = new SimpleEarthScene(this.scene);
-        sceneObjects[SCENES.URANUS] = new SimpleUranusScene(this.scene);
-        sceneObjects[SCENES.GALAXY] = new SimpleGalaxyScene(this.scene);
-        sceneObjects[SCENES.BLACK_HOLE] = new SimpleBlackHoleScene(this.scene);
-        
-        // Initially hide all scenes except Earth
-        for (const sceneIdx in sceneObjects) {
-            if (sceneObjects[sceneIdx]) {
-                sceneObjects[sceneIdx].group.visible = false;
-            }
-        }
-    }
-    
-    createSimpleStarBackground() {
-        // Create a simple star background with a black sphere and particle stars
-        const geometry = new THREE.SphereGeometry(1000, 32, 32);
-        const material = new THREE.MeshBasicMaterial({
-            color: 0x000000,
-            side: THREE.BackSide
-        });
-        const starSphere = new THREE.Mesh(geometry, material);
-        this.scene.add(starSphere);
-        
-        // Add some stars as points
-        const starCount = 1000;
-        const starGeometry = new THREE.BufferGeometry();
-        const starPositions = new Float32Array(starCount * 3);
-        
-        for (let i = 0; i < starCount; i++) {
-            const i3 = i * 3;
-            // Random positions on a sphere
-            const theta = Math.random() * Math.PI * 2;
-            const phi = Math.acos(2 * Math.random() - 1);
-            const radius = 900 + Math.random() * 80;
-            
-            starPositions[i3] = radius * Math.sin(phi) * Math.cos(theta);
-            starPositions[i3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
-            starPositions[i3 + 2] = radius * Math.cos(phi);
-        }
-        
-        starGeometry.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
-        
-        const starMaterial = new THREE.PointsMaterial({
-            color: 0xffffff,
-            size: 2,
-            sizeAttenuation: true
-        });
-        
-        const stars = new THREE.Points(starGeometry, starMaterial);
-        this.scene.add(stars);
-    }
-    
-    createStarBackground() {
-        const geometry = new THREE.SphereGeometry(5000, 64, 64);
-        const material = new THREE.MeshBasicMaterial({
-            map: this.textures.starField,
-            side: THREE.BackSide
-        });
-        const starSphere = new THREE.Mesh(geometry, material);
-        this.scene.add(starSphere);
-    }
-    
-    showScene(sceneIndex) {
-        if (isTransitioning) return;
-        
-        // Safety check for undefined scenes
-        if (!sceneObjects[sceneIndex] || !sceneObjects[sceneIndex].group) {
-            console.error(`Scene ${sceneIndex} is undefined or has no group property`);
-            return;
-        }
-        
-        // Hide all scenes first
+        // ซ่อนทุกฉากเริ่มต้น
         for (const sceneIdx in sceneObjects) {
             if (sceneObjects[sceneIdx] && sceneObjects[sceneIdx].group) {
                 sceneObjects[sceneIdx].group.visible = false;
             }
         }
-        
-        // Show the requested scene
-        sceneObjects[sceneIndex].group.visible = true;
-        
-        // Update scene label
-        const labels = ['Earth', 'Uranus', 'Galaxy', 'Black Hole'];
-        this.sceneLabel.textContent = labels[sceneIndex];
-        this.sceneLabel.style.opacity = '1';
-        
-        // Update current scene
-        currentScene = sceneIndex;
-        
-        // Apply camera and lighting settings for each scene
-        this.applySceneSettings(sceneIndex);
     }
     
-    applySceneSettings(sceneIndex) {
-        // Special handling for each scene
-        if (sceneIndex === SCENES.EARTH) {
-            // Position camera for Earth scene
-            gsap.to(this.camera.position, {
-                x: 0, y: 0, z: 15,
-                duration: 2,
-                ease: 'power2.inOut'
+    /**
+     * สร้างพื้นหลังดาว
+     */
+    createStarBackground() {
+        // ใช้ SphereGeometry ขนาดใหญ่เพื่อสร้างท้องฟ้าดาวที่อยู่รอบๆ
+        const geometry = new THREE.SphereGeometry(5000, 64, 64);
+        
+        // เลือกเท็กซ์เจอร์ตามที่มี
+        let material;
+        if (this.textures.starField) {
+            material = new THREE.MeshBasicMaterial({
+                map: this.textures.starField,
+                side: THREE.BackSide,
+                fog: false
             });
-            
-            // Turn off special lights
-            gsap.to(this.blueLight, { intensity: 0, duration: 1 });
-            gsap.to(this.purpleLight, { intensity: 0, duration: 1 });
-        } 
-        else if (sceneIndex === SCENES.URANUS) {
-            // Position camera for Uranus scene
-            gsap.to(this.camera.position, {
-                x: 0, y: 3, z: 20,
-                duration: 2,
-                ease: 'power2.inOut'
-            });
-            
-            // Add some ambient lighting
-            gsap.to(this.blueLight, { intensity: 2, duration: 1 });
-            gsap.to(this.purpleLight, { intensity: 0.5, duration: 1 });
-        } 
-        else if (sceneIndex === SCENES.GALAXY) {
-            // Position camera for Galaxy scene
-            gsap.to(this.camera.position, {
-                x: 2, y: 8, z: 15, 
-                duration: 2,
-                ease: 'power2.inOut'
-            });
-            
-            // Colorful lighting for galaxy
-            gsap.to(this.blueLight, { intensity: 5, duration: 1 });
-            gsap.to(this.purpleLight, { intensity: 3, duration: 1 });
-        } 
-        else if (sceneIndex === SCENES.BLACK_HOLE) {
-            // Position camera for Black Hole scene
-            gsap.to(this.camera.position, {
-                x: 0, y: 5, z: 20,
-                duration: 2,
-                ease: 'power2.inOut'
-            });
-            
-            // Dramatic lighting for black hole
-            gsap.to(this.blueLight, { intensity: 3, duration: 1 });
-            gsap.to(this.purpleLight, { intensity: 7, duration: 1 });
+        } else {
+            // สร้างพื้นหลังดาวด้วยการสร้างเท็กซ์เจอร์เอง
+            material = this.createFallbackStarMaterial();
         }
+        
+        const starSphere = new THREE.Mesh(geometry, material);
+        this.scene.add(starSphere);
+        this.starSphere = starSphere;
     }
     
-    transitionToScene(fromIndex, toIndex) {
-        if (isTransitioning) return;
+    /**
+     * สร้าง fallback material สำหรับพื้นหลังดาว
+     * @returns {THREE.Material} วัสดุสำหรับพื้นหลังดาว
+     */
+    createFallbackStarMaterial() {
+        // สร้างเท็กซ์เจอร์ดาวด้วย canvas
+        const canvas = document.createElement('canvas');
+        canvas.width = 2048;
+        canvas.height = 1024;
+        const ctx = canvas.getContext('2d');
         
-        // Safety check for undefined scenes
-        if (!sceneObjects[fromIndex] || !sceneObjects[fromIndex].group || 
-            !sceneObjects[toIndex] || !sceneObjects[toIndex].group) {
-            console.error(`Scene ${fromIndex} or ${toIndex} is undefined or has no group property`);
+        // พื้นหลังสีดำ
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // วาดดาวสุ่ม
+        for (let i = 0; i < 10000; i++) {
+            const x = Math.floor(Math.random() * canvas.width);
+            const y = Math.floor(Math.random() * canvas.height);
+            const radius = Math.random() * 2;
+            
+            // ความสว่างสุ่ม
+            const brightness = Math.random();
+            
+            // ความสว่างแตกต่างกัน
+            let color;
+            if (brightness > 0.9) {
+                // ดาวสีฟ้า (ร้อนกว่า)
+                color = `rgba(200, 220, 255, ${brightness})`;
+            } else if (brightness > 0.8) {
+                // ดาวสีขาว
+                color = `rgba(255, 255, 255, ${brightness})`;
+            } else if (brightness > 0.4) {
+                // ดาวสีเหลือง
+                color = `rgba(255, 255, 200, ${brightness})`;
+            } else {
+                // ดาวสีส้มแดง (เย็นกว่า)
+                color = `rgba(255, 220, 180, ${brightness})`;
+            }
+            
+            ctx.beginPath();
+            ctx.arc(x, y, radius, 0, Math.PI * 2);
+            ctx.fillStyle = color;
+            ctx.fill();
+            
+            // เพิ่ม glow สำหรับดาวสว่าง
+            if (brightness > 0.85) {
+                const glow = radius * 3;
+                const gradient = ctx.createRadialGradient(
+                    x, y, radius, x, y, glow
+                );
+                gradient.addColorStop(0, `rgba(155, 176, 255, ${brightness})`);
+                gradient.addColorStop(1, 'rgba(0, 0, 30, 0)');
+                
+                ctx.beginPath();
+                ctx.arc(x, y, glow, 0, Math.PI * 2);
+                ctx.fillStyle = gradient;
+                ctx.fill();
+            }
+        }
+        
+        // สร้าง texture จาก canvas
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.minFilter = THREE.LinearFilter;
+        
+        // สร้าง material
+        return new THREE.MeshBasicMaterial({
+            map: texture,
+            side: THREE.BackSide,
+            fog: false
+        });
+    }
+    
+    /**
+     * แสดงฉากที่ต้องการ
+     * @param {number} sceneIndex - ดัชนีของฉากที่ต้องการแสดง
+     */
+    showScene(sceneIndex) {
+        // ตรวจสอบฉากที่ต้องการแสดง
+        if (!sceneObjects[sceneIndex] || !sceneObjects[sceneIndex].group) {
+            console.error(`Scene ${sceneIndex} is undefined or has no group property`);
             return;
         }
         
-        isTransitioning = true;
-        
-        // Use the Transition utility with safety checks
-        Transition.performTransition(
-            sceneObjects[fromIndex].group,
-            sceneObjects[toIndex].group,
-            fromIndex,
-            toIndex,
-            this.camera,
-            this.blueLight,
-            this.purpleLight,
-            this.sceneLabel,
-            () => {
-                // Reset after transition completes
-                if (sceneObjects[fromIndex] && sceneObjects[fromIndex].group) {
-                    sceneObjects[fromIndex].group.visible = false;
-                }
-                currentScene = toIndex;
-                isTransitioning = false;
-            }
-        );
-    }
-    
-    animate() {
-        requestAnimationFrame(this.animate.bind(this));
-        
-        const time = performance.now() * 0.001; // time in seconds
-        
-        // Update each visible scene with safety checks
-        for (const sceneIdx in sceneObjects) {
-            if (sceneObjects[sceneIdx] && 
-                sceneObjects[sceneIdx].group && 
-                sceneObjects[sceneIdx].group.visible && 
-                typeof sceneObjects[sceneIdx].update === 'function') {
-                
-                sceneObjects[sceneIdx].update(time);
+        // ซ่อนทุกฉาก
+        for (const idx in sceneObjects) {
+            if (sceneObjects[idx] && sceneObjects[idx].group) {
+                sceneObjects[idx].group.visible = false;
             }
         }
         
-        this.renderer.render(this.scene, this.camera);
-    }
-}
-
-// Simple scene classes for fallback when textures fail to load
-
-class SimpleEarthScene {
-    constructor(scene) {
-        this.scene = scene;
-        this.group = new THREE.Group();
-        this.scene.add(this.group);
+        // แสดงฉากที่ต้องการ
+        sceneObjects[sceneIndex].group.visible = true;
         
-        // Simple Earth with blue material
-        const earthGeometry = new THREE.SphereGeometry(5, 32, 32);
-        const earthMaterial = new THREE.MeshPhongMaterial({
-            color: 0x2244dd,
-            shininess: 15
-        });
-        this.earthMesh = new THREE.Mesh(earthGeometry, earthMaterial);
-        this.group.add(this.earthMesh);
-    }
-    
-    update(time) {
-        if (this.earthMesh) {
-            this.earthMesh.rotation.y += 0.002;
-        }
-    }
-}
-
-class SimpleUranusScene {
-    constructor(scene) {
-        this.scene = scene;
-        this.group = new THREE.Group();
-        this.scene.add(this.group);
-        
-        // Simple Uranus with light blue material
-        const uranusGeometry = new THREE.SphereGeometry(6, 32, 32);
-        const uranusMaterial = new THREE.MeshPhongMaterial({
-            color: 0x88bbff,
-            shininess: 5
-        });
-        this.uranusMesh = new THREE.Mesh(uranusGeometry, uranusMaterial);
-        this.group.add(this.uranusMesh);
-        
-        // Simple ring
-        const ringGeometry = new THREE.RingGeometry(9, 11, 32);
-        const ringMaterial = new THREE.MeshBasicMaterial({
-            color: 0xaaddff,
-            side: THREE.DoubleSide,
-            transparent: true,
-            opacity: 0.4
-        });
-        this.ringMesh = new THREE.Mesh(ringGeometry, ringMaterial);
-        this.ringMesh.rotation.x = Math.PI / 2;
-        this.group.add(this.ringMesh);
-        
-        // Position off-screen initially
-        this.group.position.set(0, 0, 50);
-        this.group.rotation.z = Math.PI / 7; // Tilt
-    }
-    
-    update(time) {
-        if (this.uranusMesh) {
-            this.uranusMesh.rotation.y += 0.001;
-        }
-    }
-}
-
-class SimpleGalaxyScene {
-    constructor(scene) {
-        this.scene = scene;
-        this.group = new THREE.Group();
-        this.scene.add(this.group);
-        
-        // Create simple galaxy with particles
-        this.galaxyParticles = new THREE.Group();
-        const particleCount = 5000;
-        const galaxyGeometry = new THREE.BufferGeometry();
-        const positions = new Float32Array(particleCount * 3);
-        const colors = new Float32Array(particleCount * 3);
-        
-        for (let i = 0; i < particleCount; i++) {
-            const i3 = i * 3;
-            const radius = Math.random() * 5;
-            const angle = Math.random() * Math.PI * 2;
-            
-            positions[i3] = Math.cos(angle) * radius;
-            positions[i3 + 1] = (Math.random() - 0.5) * 0.5;
-            positions[i3 + 2] = Math.sin(angle) * radius;
-            
-            // Color gradient from center to edge
-            const color = new THREE.Color();
-            color.setHSL(0.6 + (radius / 10), 1.0, 0.5);
-            
-            colors[i3] = color.r;
-            colors[i3 + 1] = color.g;
-            colors[i3 + 2] = color.b;
+        // อัปเดตชื่อฉาก
+        const labels = ['Earth', 'Uranus', 'Galaxy', 'Black Hole'];
+        const sceneLabel = document.getElementById('scene-label');
+        if (sceneLabel) {
+            sceneLabel.textContent = labels[sceneIndex];
+            sceneLabel.style.opacity = '1';
         }
         
-        galaxyGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-        galaxyGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+        // อัปเดตฉากปัจจุบัน
+        currentScene = sceneIndex;
         
-        const galaxyMaterial = new THREE.PointsMaterial({
-            size: 0.15,
-            vertexColors: true,
-            transparent: true,
-            blending: THREE.AdditiveBlending
-        });
-        
-        const galaxyPoints = new THREE.Points(galaxyGeometry, galaxyMaterial);
-        this.galaxyParticles.add(galaxyPoints);
-        this.group.add(this.galaxyParticles);
-        
-        // Position off-screen initially
-        this.group.position.set(0, 0, 100);
-        this.group.rotation.x = Math.PI / 4;
+        // ปรับแต่งกล้องและแสงตามฉาก
+        this.applySceneSettings(sceneIndex);
     }
     
-    update(time) {
-        if (this.galaxyParticles) {
-            this.galaxyParticles.rotation.y += 0.0005;
+    /**
+     * ปรับแต่งกล้องและแสงตามฉาก
+     * @param {number} sceneIndex - ดัชนีของฉาก
+     */
+    applySceneSettings(sceneIndex) {
+        // ดึงการตั้งค่าจาก CONSTANTS
+        const settings = CONSTANTS.SCENE_SETTINGS[sceneIndex];
+        if (!settings) return;
+        
+        // ปรับตำแหน่งกล้อง
+        gsap.to(this.camera.position, {
+            x: settings.camera.x,
+            y: settings.camera.y,
+            z: settings.camera.z,
+            duration: 2,
+            ease: 'power2.inOut'
+        });
+        
+        // ปรับความเข้มของแสง
+        if (this.ambientLight && settings.lights.ambient !== undefined) {
+            gsap.to(this.ambientLight, { intensity: settings.lights.ambient, duration: 2 });
+        }
+        
+        if (this.directionalLight && settings.lights.directional !== undefined) {
+            gsap.to(this.directionalLight, { intensity: settings.lights.directional, duration: 2 });
+        }
+        
+        if (this.blueLight && settings.lights.blue !== undefined) {
+            gsap.to(this.blueLight, { intensity: settings.lights.blue, duration: 2 });
+        }
+        
+        if (this.purpleLight && settings.lights.purple !== undefined) {
+            gsap.to(this.purpleLight, { intensity: settings.lights.purple, duration: 2 });
         }
     }
-}
-
-class SimpleBlackHoleScene {
-    constructor(scene) {
-        this.scene = scene;
-        this.group = new THREE.Group();
-        this.scene.add(this.group);
+    
+    /**
+     * จัดการการปรับขนาดหน้าจอ
+     */
+    handleResize() {
+        // ปรับขนาดกล้อง
+        this.camera.aspect = window.innerWidth / window.innerHeight;
+        this.camera.updateProjectionMatrix();
         
-        // Black hole center
-        const blackHoleGeometry = new THREE.SphereGeometry(4, 32, 32);
-        const blackHoleMaterial = new THREE.MeshBasicMaterial({
-            color: 0x000000
-        });
-        const blackHoleMesh = new THREE.Mesh(blackHoleGeometry, blackHoleMaterial);
-        this.group.add(blackHoleMesh);
-        
-        // Simple accretion disk
-        const diskGeometry = new THREE.RingGeometry(5, 12, 32);
-        const diskMaterial = new THREE.MeshBasicMaterial({
-            color: 0xff3300,
-            side: THREE.DoubleSide,
-            transparent: true,
-            opacity: 0.7
-        });
-        this.diskMesh = new THREE.Mesh(diskGeometry, diskMaterial);
-        this.diskMesh.rotation.x = Math.PI / 2;
-        this.group.add(this.diskMesh);
-        
-        // Position off-screen initially
-        this.group.position.set(0, 0, 150);
+        // ปรับขนาด renderer
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     }
     
+    /**
+     * กำหนดตัวคูณจำนวนอนุภาค
+     * @param {number} multiplier - ตัวคูณจำนวนอนุภาค (0.0 - 1.0)
+     */
+    setParticleMultiplier(multiplier) {
+        this.particleMultiplier = multiplier;
+        
+        // อัปเดตจำนวนอนุภาคในทุกฉาก
+        for (const idx in sceneObjects) {
+            if (sceneObjects[idx] && typeof sceneObjects[idx].updateParticleCount === 'function') {
+                sceneObjects[idx].updateParticleCount(multiplier);
+            }
+        }
+    }
+    
+    /**
+     * รีเซ็ตทุกฉาก
+     */
+    resetAllScenes() {
+        for (const idx in sceneObjects) {
+            if (sceneObjects[idx] && typeof sceneObjects[idx].reset === 'function') {
+                sceneObjects[idx].reset();
+            }
+        }
+    }
+    
+    /**
+     * อัปเดตฉากที่แสดงอยู่
+     * @param {number} time - เวลาที่ผ่านไป (วินาที)
+     */
     update(time) {
-        if (this.diskMesh) {
-            this.diskMesh.rotation.z += 0.001;
+        // อัปเดตฉากที่แสดงอยู่
+        if (sceneObjects[currentScene] && typeof sceneObjects[currentScene].update === 'function') {
+            sceneObjects[currentScene].update(time);
+        }
+        
+        // หมุนท้องฟ้าดาวช้าๆ
+        if (this.starSphere) {
+            this.starSphere.rotation.y = time * 0.01;
         }
     }
 }

@@ -2,43 +2,114 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Space Journey Transition</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Space Journey - Interactive Transition Experience</title>
     <link rel="stylesheet" href="css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
 </head>
 <body>
+    <!-- Canvas Container -->
     <div id="canvas-container"></div>
     
+    <!-- Loading Screen -->
     <div id="loading">
-        <h2>Loading Space Journey</h2>
+        <h2>LOADING SPACE JOURNEY</h2>
         <div id="loading-progress">
             <div id="loading-bar"></div>
         </div>
+        <div id="loading-text">Initializing universe simulation...</div>
     </div>
     
+    <!-- Scene Label -->
     <div class="scene-label" id="scene-label">Earth</div>
     
-    <div class="controls">
-        <button id="prev-btn">Previous</button>
-        <button id="next-btn">Next</button>
+    <!-- Journey Progress Bar -->
+    <div class="journey-progress">
+        <div class="progress-track">
+            <div class="progress-marker earth active" data-scene="0">
+                <div class="marker-point"></div>
+                <span class="marker-label">Earth</span>
+            </div>
+            <div class="progress-marker uranus" data-scene="1">
+                <div class="marker-point"></div>
+                <span class="marker-label">Uranus</span>
+            </div>
+            <div class="progress-marker galaxy" data-scene="2">
+                <div class="marker-point"></div>
+                <span class="marker-label">Galaxy</span>
+            </div>
+            <div class="progress-marker blackhole" data-scene="3">
+                <div class="marker-point"></div>
+                <span class="marker-label">Black Hole</span>
+            </div>
+            <div class="progress-line">
+                <div class="progress-completed"></div>
+            </div>
+        </div>
+        <button id="toggle-auto" class="control-btn" title="Toggle Automatic Journey">
+            <span class="auto-icon">▶</span>
+        </button>
     </div>
     
-    <!-- Libraries จาก CDN -->
+    <!-- Information Popup -->
+    <div class="info-button">i</div>
+    <div class="info-popup">
+        <div class="info-content">
+            <h3>Space Journey</h3>
+            <p>Click anywhere to interact with celestial objects.</p>
+            <p>Use the progress bar below to navigate between scenes.</p>
+            <p>Press spacebar to pause/resume automatic transitions.</p>
+            <p>Press ESC to show/hide controls.</p>
+            <button class="close-info">Close</button>
+        </div>
+    </div>
+    
+    <!-- Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.9.1/gsap.min.js"></script>
     
-    <!-- Utility Scripts -->
+    <!-- Effects Libraries -->
+    <script src="libs/EffectComposer.js"></script>
+    <script src="libs/ShaderPass.js"></script>
+    <script src="libs/RenderPass.js"></script>
+    <script src="libs/UnrealBloomPass.js"></script>
+    <script src="libs/FXAAShader.js"></script>
+    <script src="libs/FilmPass.js"></script>
+    
+    <!-- Utils -->
+    <script src="js/utils/Constants.js"></script>
+    <script src="js/utils/DeviceDetector.js"></script>
     <script src="js/utils/ResizeHandler.js"></script>
-    <script src="js/utils/Transition.js"></script>
+    <script src="js/utils/ShaderLibrary.js"></script>
     
-    <!-- Scene Scripts -->
-    <script src="js/scenes/Earth.js"></script>
-    <script src="js/scenes/Uranus.js"></script>
-    <script src="js/scenes/Galaxy.js"></script>
-    <script src="js/scenes/BlackHole.js"></script>
+    <!-- Managers -->
+    <script src="js/managers/TextureManager.js"></script>
+    <script src="js/managers/AudioManager.js"></script>
+    <script src="js/managers/TransitionManager.js"></script>
+    <script src="js/managers/PostProcessingManager.js"></script>
+    <script src="js/managers/EventManager.js"></script>
     
-    <!-- Main Scripts -->
-    <script src="js/SceneManager.js"></script>
+    <!-- Effects -->
+    <script src="js/effects/TimeDilation.js"></script>
+    <script src="js/effects/ChromaticAberration.js"></script>
+    <script src="js/effects/LensDistortion.js"></script>
+    
+    <!-- UI Components -->
+    <script src="js/ui/LoadingScreen.js"></script>
+    <script src="js/ui/OverlayManager.js"></script>
+    <script src="js/ui/ProgressBar.js"></script>
+    
+    <!-- Base Scene & Scene Implementations -->
+    <script src="js/scenes/BaseScene.js"></script>
+    <script src="js/scenes/EarthScene.js"></script>
+    <script src="js/scenes/UranusScene.js"></script>
+    <script src="js/scenes/GalaxyScene.js"></script>
+    <script src="js/scenes/BlackHoleScene.js"></script>
+    
+    <!-- SceneManager & Main App -->
+    <script src="js/managers/SceneManager.js"></script>
     <script src="js/main.js"></script>
 </body>
 </html>
