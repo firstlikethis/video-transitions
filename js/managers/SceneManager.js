@@ -72,8 +72,8 @@ class SceneManager {
         this.renderer.shadowMap.enabled = true;
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         
-        // ตั้งค่าการเข้ารหัสสี
-        this.renderer.outputEncoding = THREE.sRGBEncoding;
+        // ตั้งค่าการเข้ารหัสสี - แก้ไขจาก outputEncoding เป็น outputColorSpace
+        this.renderer.outputColorSpace = THREE.SRGBColorSpace;
         this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
         this.renderer.toneMappingExposure = 1.1;
         

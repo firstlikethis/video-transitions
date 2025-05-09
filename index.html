@@ -8,6 +8,21 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+        
+    <!-- THREE.js core -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+
+    <!-- Postprocessing -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/postprocessing/EffectComposer.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/postprocessing/RenderPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/postprocessing/ShaderPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/postprocessing/FilmPass.js"></script>
+
+    <!-- Required shaders -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/shaders/FilmShader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/shaders/FXAAShader.js"></script>
+
 </head>
 <body>
     <!-- Canvas Container -->
@@ -66,36 +81,17 @@
         </div>
     </div>
     
-    <!-- Libraries -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Libraries - ใช้เวอร์ชันเดียวของ Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.9.1/gsap.min.js"></script>
-    
-    <!-- Three.js core -->
-    <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+   
 
-    <!-- Postprocessing effects from Three.js examples -->
-    <script type="module">
-        import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
-        import { EffectComposer } from 'https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/EffectComposer.js';
-        import { RenderPass } from 'https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/RenderPass.js';
-        import { ShaderPass } from 'https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/ShaderPass.js';
-        import { UnrealBloomPass } from 'https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/UnrealBloomPass.js';
-        import { FilmPass } from 'https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/FilmPass.js';
-        import { FXAAShader } from 'https://unpkg.com/three@0.160.0/examples/jsm/shaders/FXAAShader.js';
-    </script>
     
     <!-- Utils -->
     <script src="js/utils/Constants.js"></script>
     <script src="js/utils/DeviceDetector.js"></script>
     <script src="js/utils/ResizeHandler.js"></script>
     <script src="js/utils/ShaderLibrary.js"></script>
-    
-    <!-- Managers -->
-    <script src="js/managers/TextureManager.js"></script>
-    <script src="js/managers/AudioManager.js"></script>
-    <script src="js/managers/TransitionManager.js"></script>
-    <script src="js/managers/PostProcessingManager.js"></script>
-    <script src="js/managers/EventManager.js"></script>
     
     <!-- Effects -->
     <script src="js/effects/TimeDilation.js"></script>
@@ -107,6 +103,11 @@
     <script src="js/ui/OverlayManager.js"></script>
     <script src="js/ui/ProgressBar.js"></script>
     
+    <!-- Managers -->
+    <script src="js/managers/TextureManager.js"></script>
+    <script src="js/managers/AudioManager.js"></script>
+    <script src="js/managers/EventManager.js"></script>
+    
     <!-- Base Scene & Scene Implementations -->
     <script src="js/scenes/BaseScene.js"></script>
     <script src="js/scenes/EarthScene.js"></script>
@@ -114,8 +115,12 @@
     <script src="js/scenes/GalaxyScene.js"></script>
     <script src="js/scenes/BlackHoleScene.js"></script>
     
-    <!-- SceneManager & Main App -->
+    <!-- SceneManager, PostProcessing & Transition -->
     <script src="js/managers/SceneManager.js"></script>
+    <script src="js/managers/PostProcessingManager.js"></script>
+    <script src="js/managers/TransitionManager.js"></script>
+    
+    <!-- Main App -->
     <script src="js/main.js"></script>
 </body>
 </html>

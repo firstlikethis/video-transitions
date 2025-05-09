@@ -43,19 +43,19 @@ function initialize() {
     const loadingManager = new THREE.LoadingManager();
     setupLoadingManager(loadingManager);
     
-    // สร้าง Managers
-    textureManager = new TextureManager(loadingManager);
+    // สร้าง Managers ที่ไม่ต้องพึ่งพา TextureManager หรือ SceneManager
     audioManager = new AudioManager();
     overlayManager = new OverlayManager();
     
     // เริ่มการโหลด textures
+    textureManager = new TextureManager(loadingManager);
     textureManager.loadTextures().then(() => {
         console.log('All textures loaded successfully');
         
         // สร้าง SceneManager หลังจากโหลด textures เสร็จสิ้น
         sceneManager = new SceneManager(textureManager.textures, textureManager.materials);
         
-        // สร้าง post-processing effects
+        // สร้าง post-processing effects หลังจากมี SceneManager แล้ว
         postProcessingManager = new PostProcessingManager(
             sceneManager.renderer, 
             sceneManager.scene, 
@@ -65,7 +65,7 @@ function initialize() {
         // ปรับแต่ง quality ตามอุปกรณ์
         applyQualitySettings();
         
-        // สร้าง managers อื่นๆ
+        // สร้าง managers อื่นๆ ที่ต้องพึ่งพา SceneManager และ PostProcessingManager
         transitionManager = new TransitionManager(sceneManager, postProcessingManager, audioManager);
         eventManager = new EventManager(sceneManager, audioManager);
         

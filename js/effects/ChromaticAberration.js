@@ -77,7 +77,7 @@ class ChromaticAberrationEffect {
             fragmentShader: fragmentShader
         });
         
-        // สร้าง shader pass
+        // สร้าง shader pass - ใช้ Three.ShaderPass ที่เข้าถึงได้ผ่าน global namespace
         this.pass = new THREE.ShaderPass(material);
         this.pass.renderToScreen = false;
         this.pass.enabled = false; // ปิดไว้เริ่มต้น

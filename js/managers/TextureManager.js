@@ -109,9 +109,12 @@ class TextureManager {
     // กำหนดการตั้งค่า texture ที่เหมาะสม
     configureTexture(texture) {
         texture.anisotropy = 16; // เพิ่มความคมชัดเมื่อมองเห็นในมุมเอียง
-        texture.encoding = THREE.sRGBEncoding; // ใช้ sRGB เพื่อความถูกต้องของสี
+        
+        // แก้ไขจาก encoding ใน three.js เวอร์ชันเก่า เป็น colorSpace ในเวอร์ชันใหม่
+        texture.colorSpace = THREE.SRGBColorSpace; // ใช้ SRGBColorSpace เพื่อความถูกต้องของสี
+        
         // กำหนดการตั้งค่า texture ที่เหมาะสม (ต่อ)
-        texture.minFilter = THREE.LinearMipMapLinearFilter; // การกรองคุณภาพสูงสำหรับการย่อ
+        texture.minFilter = THREE.LinearMipmapLinearFilter; // การกรองคุณภาพสูงสำหรับการย่อ
         texture.magFilter = THREE.LinearFilter; // การกรองคุณภาพสูงสำหรับการขยาย
         texture.needsUpdate = true; // บังคับให้อัปเดต
     }
@@ -211,7 +214,7 @@ class TextureManager {
             map: this.textures.earth,
             bumpMap: this.textures.earthBump,
             normalMap: this.textures.earthNormal,
-            specularMap: this.textures.earthSpecular,
+            roughnessMap: this.textures.earthSpecular, // เปลี่ยนจาก specularMap เป็น roughnessMap
             bumpScale: 0.1,
             normalScale: new THREE.Vector2(0.8, 0.8),
             roughness: 0.8,

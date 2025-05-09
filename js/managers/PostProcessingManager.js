@@ -69,9 +69,6 @@ class PostProcessingManager {
         filmPass.renderToScreen = true;
         this.composer.addPass(filmPass);
         this.passes.film = filmPass;
-        
-        // ทำให้ pass สุดท้ายเรนเดอร์ไปที่หน้าจอ
-        filmPass.renderToScreen = true;
     }
     
     /**
